@@ -15,8 +15,46 @@
   // Gjør teksten "tilgivende": små bokstaver, og alt unntatt bokstaver/tall fjernes.
   // "Rep.objekt", "rep-objekt", "REP OBJEKT" og "repobjekt" blir alle "repobjekt".
   // "|" beholdes som skilletegn så unntak ikke limer sammen nye ord.
-  const norm = (s) =>
-    (s || "").toLowerCase().normalize("NFKC").replace(/[^a-z0-9æøåäöüé|]+/g, "");
+  // map[i] = posisjonen i originalteksten som tegn i kom fra, så vi kan vise
+  // brukeren nøyaktig hvilke ord som utløste filteret.
+  const KEEP_CHAR = /[a-z0-9æøåäöüé|]/;
+
+  function normMapped(s) {
+    let text = "";
+    const map = [];
+    for (let i = 0; i < s.length; i++) {
+      for (const c of s[i].toLowerCase()) {
+        if (KEEP_CHAR.test(c)) {
+          text += c;
+          map.push(i);
+        }
+      }
+    }
+    return { text, map };
+  }
+
+  const norm = (s) => normMapped((s || "").normalize("NFKC")).text;
+
+  // Erstatter treff med "|" og holder posisjonskartet i takt.
+  function cutMapped({ text, map }, re) {
+    let out = "";
+    const outMap = [];
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      for (let i = last; i < m.index; i++) outMap.push(map[i]);
+      outMap.push(map[m.index]);
+      out += text.slice(last, m.index) + "|";
+      last = m.index + m[0].length;
+    }
+    for (let i = last; i < text.length; i++) outMap.push(map[i]);
+    return { text: out + text.slice(last), map: outMap };
+  }
+
+  const MAX_HIT_CHARS = 40;
+  function tidy(hit) {
+    const s = hit.replace(/\s+/g, " ").trim();
+    return s.length > MAX_HIT_CHARS ? s.slice(0, MAX_HIT_CHARS - 1) + "…" : s;
+  }
 
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -56,18 +94,26 @@
     return { include, exclude };
   }
 
-  // Returnerer regelen som slo til, eller null.
+  // Returnerer { rule, hit } – regelen som slo til og teksten den traff – eller null.
   function check(text) {
     if (!compiled.include.length) return null;
-    let raw = (text || "").toLowerCase();
+    let raw = (text || "").normalize("NFKC");
     for (const r of compiled.exclude) if (r.raw) raw = raw.replace(r.re, " | ");
-    let n = norm(raw);
-    for (const r of compiled.exclude) if (!r.raw) n = n.replace(r.re, "|");
+    let n = normMapped(raw);
+    for (const r of compiled.exclude) if (!r.raw) n = cutMapped(n, r.re);
     for (const r of compiled.include) {
-      if (r.raw ? r.re.test(raw) : r.re.test(n)) return r.label;
+      const m = r.re.exec(r.raw ? raw : n.text);
+      if (!m) continue;
+      const hit = r.raw
+        ? m[0]
+        : raw.slice(n.map[m.index], n.map[m.index + m[0].length - 1] + 1);
+      return { rule: r.label, hit: tidy(hit) };
     }
     return null;
   }
+
+  const describeHit = ({ rule, hit }, where) =>
+    `«${hit}» (regel: ${rule}${where ? `, ${where}` : ""})`;
 
   // ---------- Finne annonsekort ----------
 
@@ -174,15 +220,17 @@
 
     let count = 0;
     for (const [card, url] of cards) {
-      let reason = check(card.textContent);
-      if (!reason && settings.deep && url) {
+      let hit = check(card.textContent);
+      let where = "";
+      if (!hit && settings.deep && url) {
         if (deepText.has(url)) {
-          const r = check(deepText.get(url));
-          if (r) reason = `${r} (i annonseteksten)`;
+          hit = check(deepText.get(url));
+          where = "i annonseteksten";
         } else {
           requestDeep(url);
         }
       }
+      const reason = hit ? describeHit(hit, where) : null;
       setState(card, reason ? settings.mode : null, reason);
       if (reason) count++;
     }

@@ -25,6 +25,9 @@ html.ff-reveal [data-ff-state="hide"]::after {
   left: 8px;
   z-index: 5;
   max-width: calc(100% - 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: #d33;
   color: #fff;
   font: 600 12px/1.4 system-ui, sans-serif;

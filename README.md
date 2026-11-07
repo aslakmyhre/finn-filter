@@ -77,8 +77,9 @@ hvorfor filteret eventuelt ikke kjører.
 
 - **Skjul helt** – treff forsvinner. Telleren nede til høyre viser hvor mange, og
   «vis» der viser dem nedtonet midlertidig.
-- **Vis nedtonet** – treff blir grå med en rød lapp som sier hvilken regel som slo
-  til. Nyttig når du justerer regler.
+- **Vis nedtonet** – treff blir grå med en rød lapp som viser ordene i annonsen
+  som slo til og hvilken regel det var, f.eks. `Filtrert: «REP. OBJEKT» (regel:
+  rep objekt)`. Nyttig når du justerer regler.
 - **Sjekk også teksten inne i annonsen** – mange skriver «ikke godkjent EU» bare i
   beskrivelsen, ikke i tittelen. Med dette på henter utvidelsen hver annonse i
   bakgrunnen (maks 3 samtidig) og sjekker hele teksten. Tregere, så annonser
