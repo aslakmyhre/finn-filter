@@ -3,20 +3,24 @@ const D = globalThis.FF_DEFAULTS;
 const $ = (id) => document.getElementById(id);
 
 const FINN_URL = /^https:\/\/www\.finn\.no\//;
-// Mens dyp sjekk henter annonser i bakgrunnen, oppdateres telleren jevnlig.
+// Mens dyp sjekk henter annonser i bakgrunnen, oppdateres statusen jevnlig.
 const PENDING_POLL_MS = 1000;
 const FLASH_MS = 1500;
 
 let saved = null; // innstillingene som faktisk er i bruk (lagret)
 
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
 function parseRules() {
   return $("rules").value.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
+const selectedMode = () => document.querySelector('input[name="mode"]:checked').value;
+
 function readForm() {
   return {
     enabled: $("enabled").checked,
-    mode: $("mode").value,
+    mode: selectedMode(),
     deep: $("deep").checked,
     rules: parseRules()
   };
@@ -37,25 +41,42 @@ function validate(rules) {
   $("errors").textContent = bad.join("\n");
 }
 
+function showRuleCount(rules) {
+  const active = rules.filter((l) => !l.startsWith("#"));
+  const exceptions = active.filter((l) => l.startsWith("!")).length;
+  const parts = [plural(active.length - exceptions, "regel", "regler")];
+  if (exceptions) parts.push(plural(exceptions, "unntak", "unntak"));
+  $("rule-count").textContent = parts.join(" · ");
+}
+
 const isDirty = () => JSON.stringify(readForm()) !== JSON.stringify(saved);
 
 function updateDirty() {
   const dirty = isDirty();
   $("apply").classList.toggle("dirty", dirty);
-  $("apply").textContent = dirty ? "Oppdater filter ●" : "Oppdater filter";
   $("apply").title = dirty ? "Du har endringer som ikke er tatt i bruk ennå" : "Kjør filteret på nytt";
 }
 
 function onFormChange() {
-  validate(parseRules());
+  const rules = parseRules();
+  validate(rules);
+  showRuleCount(rules);
+  document.body.classList.toggle("off", !$("enabled").checked);
   updateDirty();
 }
 
 let flashTimer;
 function flash(msg) {
-  $("status").textContent = msg;
+  $("flash").textContent = msg;
   clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => ($("status").textContent = ""), FLASH_MS);
+  flashTimer = setTimeout(() => ($("flash").textContent = ""), FLASH_MS);
+}
+
+// tone: "ok" | "warn" | "error" | "neutral"
+function showStatus(tone, main, detail = "") {
+  $("status-card").dataset.tone = tone;
+  $("status-main").textContent = main;
+  $("status-detail").textContent = detail;
 }
 
 async function apply() {
@@ -67,17 +88,26 @@ async function apply() {
   await askTab("ff-rerun");
 }
 
-function describe(r) {
-  if (!r.enabled) return "Filteret er slått av.";
-  const lines = [];
-  const verb = r.mode === "hide" ? "Skjuler" : "Markerer";
-  lines.push(`${verb} ${r.count} av ${r.cards} annonse${r.cards === 1 ? "" : "r"} på denne siden.`);
-  if (r.pending > 0) lines.push(`Sjekker ${r.pending} annonsetekst${r.pending === 1 ? "" : "er"} i bakgrunnen …`);
-  if (r.cards === 0 && !r.detailPage) lines.push("Fant ingen annonsekort – er dette en søkeside?");
-  if (r.count === 0 && r.cards > 0 && !r.deep) {
-    lines.push("Tips: slå på «Sjekk også teksten inne i annonsen» – ord som «rep.objekt» står ofte bare i beskrivelsen.");
+function showPageStatus(r) {
+  if (!r.enabled) {
+    showStatus("neutral", "Filteret er slått av");
+    return;
   }
-  return lines.join("\n");
+  if (r.detailPage) {
+    showStatus("neutral", "Dette er en annonse", "Filteret virker på søkeresultater.");
+    return;
+  }
+  if (r.cards === 0) {
+    showStatus("warn", "Fant ingen annonser på siden", "Er dette en søkeside?");
+    return;
+  }
+  const verb = r.mode === "hide" ? "skjult" : "markert";
+  const details = [];
+  if (r.pending > 0) details.push(`Sjekker ${plural(r.pending, "annonsetekst", "annonsetekster")} i bakgrunnen …`);
+  if (r.count === 0 && !r.deep) {
+    details.push("Tips: slå på «Sjekk annonseteksten» – ord som «rep.objekt» står ofte bare i beskrivelsen.");
+  }
+  showStatus("ok", `${r.count} av ${plural(r.cards, "annonse", "annonser")} ${verb}`, details.join("\n"));
 }
 
 let pollTimer;
@@ -86,34 +116,35 @@ async function askTab(type) {
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   // Uten tilgang til siden skjuler nettleseren adressen for utvidelsen.
   if (!tab || !tab.url) {
-    $("count").textContent =
-      "Utvidelsen har ikke tilgang til denne fanen.\nGi Finn-filter tilgang til www.finn.no og last siden på nytt.";
+    showStatus("error", "Ingen tilgang til denne fanen", "Gi Finn-filter tilgang til www.finn.no og last siden på nytt.");
     return;
   }
   if (!FINN_URL.test(tab.url)) {
-    $("count").textContent = "Åpne et søk på finn.no for å se filteret i aksjon.";
+    showStatus("neutral", "Ikke på finn.no", "Åpne et søk på finn.no for å se filteret i aksjon.");
     return;
   }
   let r;
   try {
     r = await api.tabs.sendMessage(tab.id, { type });
   } catch (e) {
-    $("count").textContent =
-      `Filteret kjører ikke på denne siden (${e.message}).\n` +
-      "Last siden på nytt. Hjelper ikke det: sjekk at Finn-filter har tilgang til www.finn.no.";
+    showStatus(
+      "error",
+      "Filteret kjører ikke på denne siden",
+      `Last siden på nytt. Hjelper ikke det: sjekk at Finn-filter har tilgang til www.finn.no. (${e.message})`
+    );
     return;
   }
   if (!r) {
-    $("count").textContent = "Fikk ikke svar fra siden. Last siden på nytt.";
+    showStatus("error", "Fikk ikke svar fra siden", "Last siden på nytt.");
     return;
   }
-  $("count").textContent = describe(r);
+  showPageStatus(r);
   if (r.pending > 0) pollTimer = setTimeout(() => askTab("ff-count"), PENDING_POLL_MS);
 }
 
 function fill(s) {
   $("enabled").checked = s.enabled;
-  $("mode").value = s.mode;
+  $(`mode-${s.mode}`).checked = true;
   $("deep").checked = s.deep;
   $("rules").value = s.rules.join("\n");
 }
@@ -121,14 +152,16 @@ function fill(s) {
 async function init() {
   fill({ ...D, ...(await api.storage.sync.get(D)) });
   saved = readForm();
-  validate(saved.rules);
-  updateDirty();
+  onFormChange();
+  requestAnimationFrame(() => document.body.classList.add("ready"));
 
-  for (const id of ["enabled", "mode", "deep"]) $(id).addEventListener("change", onFormChange);
+  for (const el of document.querySelectorAll('#enabled, #deep, input[name="mode"]')) {
+    el.addEventListener("change", onFormChange);
+  }
   $("rules").addEventListener("input", onFormChange);
   $("apply").addEventListener("click", () =>
     apply().catch((e) => {
-      $("count").textContent = `Kunne ikke oppdatere: ${e.message}`;
+      showStatus("error", "Kunne ikke oppdatere", e.message);
       console.error(e);
     })
   );
@@ -141,6 +174,6 @@ async function init() {
 }
 
 init().catch((e) => {
-  $("count").textContent = `Feil i Finn-filter: ${e.message}`;
+  showStatus("error", "Feil i Finn-filter", e.message);
   console.error(e);
 });

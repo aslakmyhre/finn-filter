@@ -4,60 +4,253 @@
   <meta charset="utf-8">
   <title>Finn-filter</title>
   <style>
-    :root { color-scheme: light dark; }
-    body { width: 340px; margin: 0; padding: 14px; font: 13px/1.45 system-ui, sans-serif; }
-    h1 { font-size: 15px; margin: 0 0 10px; }
-    label { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-    select { flex: 1; }
-    textarea { width: 100%; box-sizing: border-box; height: 190px; margin-top: 8px;
-      font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
-    details { margin-top: 6px; color: #666; }
-    @media (prefers-color-scheme: dark) { details { color: #aaa; } }
-    details ul { padding-left: 18px; margin: 6px 0; }
-    code { background: rgba(127,127,127,.15); padding: 0 3px; border-radius: 3px; }
-    .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-    #status { color: #2a7; min-height: 1em; }
-    #errors { color: #d33; white-space: pre-line; }
-    #count { margin-top: 10px; padding: 8px; border-radius: 6px; background: rgba(127,127,127,.12); white-space: pre-line; }
-    #apply { font-weight: 600; }
-    #apply.dirty { background: #2563eb; color: #fff; border: 1px solid #1d4ed8; border-radius: 4px; }
-    small { color: #888; }
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f4f6;
+      --surface: #ffffff;
+      --surface-2: #eceef1;
+      --border: rgba(0, 0, 0, 0.08);
+      --text: #17181b;
+      --muted: #6b6f78;
+      --accent: #0063fb;
+      --accent-text: #ffffff;
+      --ok: #1f9d55;
+      --warn: #c27a00;
+      --danger: #d33a3a;
+      --radius: 10px;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1d20;
+        --surface: #26282c;
+        --surface-2: #31343a;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #eceef1;
+        --muted: #9a9fa8;
+        --accent: #3d8bff;
+        --ok: #3ccf7a;
+        --warn: #f0a92e;
+        --danger: #ff6b6b;
+        --shadow: none;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      width: 360px;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.4 -apple-system, system-ui, sans-serif;
+    }
+    main { padding: 14px 14px 0; display: grid; gap: 14px; }
+
+    /* ---------- Topp ---------- */
+    header { display: flex; align-items: center; gap: 10px; }
+    header img { width: 28px; height: 28px; border-radius: 7px; }
+    header h1 { flex: 1; margin: 0; font-size: 15px; font-weight: 650; }
+
+    /* ---------- Bryter (checkbox) ---------- */
+    .switch {
+      appearance: none;
+      flex: none;
+      width: 38px; height: 22px; margin: 0;
+      border-radius: 999px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      position: relative;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .switch::after {
+      content: "";
+      position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+      transition: transform .15s;
+    }
+    .switch:checked { background: var(--accent); border-color: transparent; }
+    .switch:checked::after { transform: translateX(16px); }
+    .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    /* Ikke animer brytere fra av til lagret verdi når popupen åpnes. */
+    body:not(.ready) .switch, body:not(.ready) .switch::after { transition: none; }
+
+    /* ---------- Status ---------- */
+    #status-card {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    #status-dot { flex: none; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
+    #status-card[data-tone="ok"] #status-dot { background: var(--ok); }
+    #status-card[data-tone="warn"] #status-dot { background: var(--warn); }
+    #status-card[data-tone="error"] #status-dot { background: var(--danger); }
+    #status-main { font-weight: 600; }
+    #status-detail { color: var(--muted); white-space: pre-line; }
+    #status-detail:empty { display: none; }
+
+    /* ---------- Seksjoner ---------- */
+    section { display: grid; gap: 6px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px; }
+    .section-head h2 {
+      margin: 0;
+      font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .section-meta { font-size: 11px; color: var(--muted); }
+
+    .group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; }
+    .row + .row { border-top: 1px solid var(--border); }
+    .row-text { flex: 1; min-width: 0; }
+    .row-text small { display: block; color: var(--muted); font-size: 11.5px; }
+
+    /* Når filteret er av, er innstillingene uten virkning – vis det. */
+    body.off .depends-on-enabled { opacity: .45; }
+
+    /* ---------- Segmentert valg ---------- */
+    .segmented {
+      display: inline-flex; padding: 2px; gap: 2px;
+      background: var(--surface-2);
+      border-radius: 8px;
+    }
+    .segmented input { position: absolute; opacity: 0; pointer-events: none; }
+    .segmented label {
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 12px; font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .segmented input:checked + label { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
+    .segmented input:focus-visible + label { outline: 2px solid var(--accent); }
+
+    /* ---------- Regelsett ---------- */
+    .ruleset textarea {
+      display: block;
+      width: 100%; height: 200px;
+      margin: 0; padding: 10px 12px;
+      border: 0; border-radius: var(--radius) var(--radius) 0 0;
+      background: transparent;
+      color: var(--text);
+      font: 12px/1.6 ui-monospace, Menlo, monospace;
+      resize: vertical;
+    }
+    .ruleset textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .rule-errors { color: var(--danger); font-size: 12px; white-space: pre-line; padding: 0 12px; }
+    .rule-errors:empty { display: none; }
+    .ruleset details { border-top: 1px solid var(--border); }
+    .ruleset summary {
+      padding: 8px 12px;
+      color: var(--muted); font-size: 12px;
+      cursor: pointer;
+      list-style: none;
+    }
+    .ruleset summary::-webkit-details-marker { display: none; }
+    .ruleset summary::before { content: "▸ "; }
+    .ruleset details[open] summary::before { content: "▾ "; }
+    .ruleset details ul { margin: 0; padding: 0 12px 10px 28px; color: var(--muted); font-size: 12px; }
+    .ruleset details li + li { margin-top: 4px; }
+    code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; font-size: 11.5px; color: var(--text); }
+
+    /* ---------- Bunn ---------- */
+    footer {
+      position: sticky; bottom: 0;
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 14px; padding: 10px 14px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+    #flash { flex: 1; text-align: center; color: var(--ok); font-size: 12px; }
+    button {
+      font: inherit; font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .ghost { background: transparent; border-color: transparent; color: var(--muted); font-weight: 500; }
+    .ghost:hover { color: var(--text); }
+    #apply.dirty { background: var(--accent); border-color: transparent; color: var(--accent-text); }
+    #apply.dirty::after { content: " ●"; }
   </style>
 </head>
 <body>
-  <h1>Finn-filter</h1>
+  <main>
+    <header>
+      <img src="icons/icon32.png" alt="">
+      <h1>Finn-filter</h1>
+      <input type="checkbox" id="enabled" class="switch" aria-label="Filteret er aktivt">
+    </header>
 
-  <label><input type="checkbox" id="enabled"> Filteret er aktivt</label>
-  <label>Treff:
-    <select id="mode">
-      <option value="hide">Skjul helt</option>
-      <option value="dim">Vis nedtonet med begrunnelse</option>
-    </select>
-  </label>
-  <label><input type="checkbox" id="deep"> Sjekk også teksten inne i annonsen</label>
-  <small>Henter hver annonse i bakgrunnen – tregere, men fanger det som ikke står i tittelen.</small>
+    <div id="status-card" data-tone="neutral" role="status">
+      <span id="status-dot"></span>
+      <div>
+        <div id="status-main">…</div>
+        <div id="status-detail"></div>
+      </div>
+    </div>
 
-  <textarea id="rules" spellcheck="false"></textarea>
-  <div id="errors"></div>
+    <section class="depends-on-enabled" aria-labelledby="view-title">
+      <div class="section-head"><h2 id="view-title">Visning</h2></div>
+      <div class="group">
+        <div class="row">
+          <div class="row-text">Treff</div>
+          <div class="segmented" role="radiogroup" aria-label="Hva skjer med treff">
+            <input type="radio" name="mode" id="mode-hide" value="hide"><label for="mode-hide">Skjul</label>
+            <input type="radio" name="mode" id="mode-dim" value="dim"><label for="mode-dim">Nedton</label>
+          </div>
+        </div>
+        <label class="row" for="deep">
+          <div class="row-text">
+            Sjekk annonseteksten
+            <small>Henter hver annonse i bakgrunnen – tregere, men fanger det som bare står i beskrivelsen.</small>
+          </div>
+          <input type="checkbox" id="deep" class="switch">
+        </label>
+      </div>
+    </section>
 
-  <details>
-    <summary>Hvordan skrive regler</summary>
-    <ul>
-      <li>Én regel per linje. Store/små bokstaver, mellomrom, punktum og bindestrek ignoreres, så <code>rep objekt</code> treffer «Rep.objekt», «rep-objekt» og «REPOBJEKT».</li>
-      <li><code>*</code> = inntil ca. 25 tegn imellom: <code>ikke godkjent*eu</code> treffer «ikke godkjent på EU-kontroll».</li>
-      <li><code>!frase</code> = unntak, fjernes før sjekk: <code>!ikke rep objekt</code>.</li>
-      <li><code>/regex/</code> = regulært uttrykk mot teksten, f.eks. <code>/\bdefekt(e)?\b/</code>.</li>
-      <li><code>#</code> i starten = kommentar.</li>
-    </ul>
-  </details>
+    <section class="ruleset depends-on-enabled" aria-labelledby="rules-title">
+      <div class="section-head">
+        <h2 id="rules-title">Regler</h2>
+        <span class="section-meta" id="rule-count"></span>
+      </div>
+      <div class="group">
+        <textarea id="rules" spellcheck="false" aria-labelledby="rules-title"></textarea>
+        <div class="rule-errors" id="errors"></div>
+        <details>
+          <summary>Slik skriver du regler</summary>
+          <ul>
+            <li>Én regel per linje. Store/små bokstaver, mellomrom, punktum og bindestrek ignoreres, så <code>rep objekt</code> treffer «Rep.objekt», «rep-objekt» og «REPOBJEKT».</li>
+            <li><code>*</code> = inntil ca. 25 tegn imellom: <code>ikke godkjent*eu</code> treffer «ikke godkjent på EU-kontroll».</li>
+            <li><code>!frase</code> = unntak, fjernes før sjekk: <code>!ikke rep objekt</code>.</li>
+            <li><code>/regex/</code> = regulært uttrykk mot teksten, f.eks. <code>/\bdefekt(e)?\b/</code>.</li>
+            <li><code>#</code> i starten = kommentar.</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+  </main>
 
-  <div class="row">
+  <footer>
+    <button id="reset" type="button" class="ghost">Tilbakestill regler</button>
+    <span id="flash" aria-live="polite"></span>
     <button id="apply" type="button">Oppdater filter</button>
-    <span id="status"></span>
-    <button id="reset" type="button">Tilbakestill regler</button>
-  </div>
-
-  <div id="count"></div>
+  </footer>
 
   <script src="defaults.js"></script>
   <script src="popup.js"></script>
