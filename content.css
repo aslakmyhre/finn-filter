@@ -1,0 +1,53 @@
+/* Skjult modus */
+html:not(.ff-reveal) [data-ff-state="hide"] {
+  display: none !important;
+}
+
+/* Nedtonet modus (og "vis" fra telleren) */
+[data-ff-state="dim"],
+html.ff-reveal [data-ff-state="hide"] {
+  position: relative !important;
+  outline: 2px dashed #d33 !important;
+  outline-offset: -2px;
+}
+
+[data-ff-state="dim"] > *,
+html.ff-reveal [data-ff-state="hide"] > * {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+[data-ff-state="dim"]::after,
+html.ff-reveal [data-ff-state="hide"]::after {
+  content: "Filtrert: " attr(data-ff-reason);
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  max-width: calc(100% - 16px);
+  background: #d33;
+  color: #fff;
+  font: 600 12px/1.4 system-ui, sans-serif;
+  padding: 2px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+#ff-badge {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483647;
+  background: #1f2937;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: 600 13px/1.2 system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+#ff-badge:hover {
+  background: #374151;
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <title>Finn-filter</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { width: 340px; margin: 0; padding: 14px; font: 13px/1.45 system-ui, sans-serif; }
+    h1 { font-size: 15px; margin: 0 0 10px; }
+    label { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    select { flex: 1; }
+    textarea { width: 100%; box-sizing: border-box; height: 190px; margin-top: 8px;
+      font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+    details { margin-top: 6px; color: #666; }
+    @media (prefers-color-scheme: dark) { details { color: #aaa; } }
+    details ul { padding-left: 18px; margin: 6px 0; }
+    code { background: rgba(127,127,127,.15); padding: 0 3px; border-radius: 3px; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    #status { color: #2a7; min-height: 1em; }
+    #errors { color: #d33; white-space: pre-line; }
+    #count { margin-top: 10px; padding: 8px; border-radius: 6px; background: rgba(127,127,127,.12); white-space: pre-line; }
+    #apply { font-weight: 600; }
+    #apply.dirty { background: #2563eb; color: #fff; border: 1px solid #1d4ed8; border-radius: 4px; }
+    small { color: #888; }
+  </style>
+</head>
+<body>
+  <h1>Finn-filter</h1>
+
+  <label><input type="checkbox" id="enabled"> Filteret er aktivt</label>
+  <label>Treff:
+    <select id="mode">
+      <option value="hide">Skjul helt</option>
+      <option value="dim">Vis nedtonet med begrunnelse</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="deep"> Sjekk også teksten inne i annonsen</label>
+  <small>Henter hver annonse i bakgrunnen – tregere, men fanger det som ikke står i tittelen.</small>
+
+  <textarea id="rules" spellcheck="false"></textarea>
+  <div id="errors"></div>
+
+  <details>
+    <summary>Hvordan skrive regler</summary>
+    <ul>
+      <li>Én regel per linje. Store/små bokstaver, mellomrom, punktum og bindestrek ignoreres, så <code>rep objekt</code> treffer «Rep.objekt», «rep-objekt» og «REPOBJEKT».</li>
+      <li><code>*</code> = inntil ca. 25 tegn imellom: <code>ikke godkjent*eu</code> treffer «ikke godkjent på EU-kontroll».</li>
+      <li><code>!frase</code> = unntak, fjernes før sjekk: <code>!ikke rep objekt</code>.</li>
+      <li><code>/regex/</code> = regulært uttrykk mot teksten, f.eks. <code>/\bdefekt(e)?\b/</code>.</li>
+      <li><code>#</code> i starten = kommentar.</li>
+    </ul>
+  </details>
+
+  <div class="row">
+    <button id="apply" type="button">Oppdater filter</button>
+    <span id="status"></span>
+    <button id="reset" type="button">Tilbakestill regler</button>
+  </div>
+
+  <div id="count"></div>
+
+  <script src="defaults.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
