@@ -69,23 +69,33 @@ signering med Apple-ID).
 
 Finer underkategorier enn Finn har. Foreløpig: **Datakomponenter → Skjermkort**.
 Gjelder bare når søket er i Datakomponenter (`product_category=2.93.3215.8368`).
+Der gjelder profilen alene – de generelle reglene er av, og skjules i popupen.
 
 I popupen under **Kategori** velger du underkategori og krav:
 
-- **Produsent** og **VRAM** – velg én eller flere (holder at én stemmer).
+- **Produsent** og **VRAM** – velg én eller flere. Hvert felt er *ett* krav, så
+  16/20/24/32 GB betyr «minst ett av dem».
 - **Modell** – kommaseparert, f.eks. `4060ti, 5060ti`. `4060ti` treffer også
   «4060 Ti» og «RTX4060-TI», men `4060` treffer ikke «4060 Ti», og `4070ti`
   treffer ikke «4070 Ti Super».
-- **Søkeord** – hvert ord kan være `–`, **Krav** eller **Blokker**. Egne ord kan
-  legges til. Blokkerte ord sjekkes bare mot kortet, ikke annonseteksten.
+- **Søkeord** – klikk for å bytte mellom `–`, **krav** og **blokkert**. Egne ord
+  kan legges til. Hvert ord som er krav, teller som eget krav.
+- **Nesten-treff** – *Advar* (gul lapp) eller *Skjul*. Med Advar bestemmer
+  slideren hvor mange krav som kan mangle før annonsen skjules.
 
 Per annonse:
 
-| Resultat                                   | Visning                              |
-|--------------------------------------------|--------------------------------------|
-| Alle krav oppfylt                          | Vises som vanlig                     |
-| Noen krav oppfylt                          | Gul lapp: «⚠ Mangler 16 GB (Skjermkort)» |
-| Ingen krav oppfylt, feil modell, eller blokkert ord | Skjules/nedtones som vanlige regler |
+| Resultat | Visning |
+|----------|---------|
+| Alle krav oppfylt | Vises som vanlig |
+| Nesten-treff (innenfor slideren) | Gul lapp: «⚠ Mangler VRAM (Skjermkort)» |
+| For mange mangler, ingen krav oppfylt, feil modell | Skjules/nedtones |
+| Blokkert ord på kortet | Skjules/nedtones |
+| Kortet nevner en annen produsent *først* («Radeon RX 7800 XT (ønsker Nvidia)») | Skjules/nedtones |
+
+Blokkerte ord og produsent sjekkes bare mot kortet. Annonseteksten (med «Sjekk
+annonseteksten» på) kan bare oppfylle krav – beskrivelser nevner ofte «cpu» eller
+«bytte mot Nvidia» uten at annonsen gjelder det.
 
 VRAM leses fra teksten, så «RTX 4060 8GB / 16GB RAM» regnes som 16 GB.
 Nye kategorier legges til som data i `categories.js`.

@@ -6,6 +6,7 @@
 // attrs:   strukturerte krav. "options" = velg en eller flere verdier (ELLER),
 //          "models" = fritekst, kommaseparert. decisive = ikke oppfylt ⇒ filtreres,
 //          selv om andre krav er oppfylt (modellen avgjør hvilket kort det er).
+//          exclusive = kortet nevner et ikke-valgt alternativ (og ikke et valgt) ⇒ filtreres.
 (() => {
   const VRAM_SIZES = [2, 3, 4, 6, 8, 10, 11, 12, 16, 20, 24, 32];
 
@@ -15,7 +16,7 @@
       match: { param: "product_category", value: "2.93.3215.8368" },
       words: [
         "cpu", "prosessor", "ryzen", "intel core", "hovedkort", "motherboard",
-        "ram", "ddr4", "ddr5", "kabinett", "strømforsyning", "psu", "kjøler",
+        "ram", "ddr3", "ddr4", "ddr5", "kabinett", "strømforsyning", "psu", "kjøler",
         "vannkjøling", "ssd", "nvme", "laptop", "bærbar", "defekt", "bytter"
       ],
       subs: {
@@ -23,7 +24,7 @@
           label: "Skjermkort",
           attrs: [
             {
-              id: "producer", label: "Produsent", type: "options",
+              id: "producer", label: "Produsent", type: "options", exclusive: true,
               options: [
                 { id: "nvidia", label: "Nvidia", words: ["nvidia", "geforce", "rtx", "gtx"] },
                 { id: "amd", label: "AMD", words: ["radeon", "amd", "rx"] },
@@ -44,7 +45,8 @@
           ],
           defaultWords: {
             cpu: "block", prosessor: "block", ryzen: "block", "intel core": "block",
-            hovedkort: "block", motherboard: "block", kabinett: "block", laptop: "block"
+            hovedkort: "block", motherboard: "block", kabinett: "block", laptop: "block",
+            ram: "block", ddr3: "block", ddr4: "block", ddr5: "block"
           }
         }
       }

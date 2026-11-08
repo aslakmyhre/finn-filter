@@ -106,6 +106,7 @@ function showPageStatus(r) {
   const details = [];
   if (r.profile) {
     details.push(`Profil: ${r.profile}${r.warned ? ` · ${plural(r.warned, "advarsel", "advarsler")}` : ""}`);
+    details.push("De generelle reglene er av i dette søket.");
   } else {
     const selected = CategoryForm.selectedLabels(saved.profiles);
     if (selected.length) details.push(`Profilen (${selected.join(", ")}) gjelder ikke dette søket.`);
@@ -115,6 +116,23 @@ function showPageStatus(r) {
     details.push("Tips: slå på «Sjekk annonseteksten» – ord som «rep.objekt» står ofte bare i beskrivelsen.");
   }
   showStatus("ok", `${r.count} av ${plural(r.cards, "annonse", "annonser")} ${verb}`, details.join("\n"));
+}
+
+function setCollapsed(section, collapsed) {
+  section.classList.toggle("collapsed", collapsed);
+  section.querySelector(".collapse").setAttribute("aria-expanded", String(!collapsed));
+}
+
+// Tilpasser popupen til søket i fanen. Utvidet/sammenlagt settes bare én gang
+// per åpning, så brukerens egne klikk ikke overstyres når statusen oppdateres.
+let contextApplied = false;
+function applyContext(r) {
+  $("rules-section").hidden = Boolean(r.profile);
+  if (contextApplied) return;
+  contextApplied = true;
+  if (r.category) CategoryForm.showCategory(r.category);
+  setCollapsed($("cat-section"), !r.category);
+  setCollapsed($("rules-section"), false);
 }
 
 let pollTimer;
@@ -145,6 +163,7 @@ async function askTab(type) {
     showStatus("error", "Fikk ikke svar fra siden", "Last siden på nytt.");
     return;
   }
+  applyContext(r);
   showPageStatus(r);
   if (r.pending > 0) pollTimer = setTimeout(() => askTab("ff-count"), PENDING_POLL_MS);
 }
@@ -167,6 +186,10 @@ async function init() {
     el.addEventListener("change", onFormChange);
   }
   $("rules").addEventListener("input", onFormChange);
+  for (const btn of document.querySelectorAll(".section-head .collapse")) {
+    const section = btn.closest("section");
+    btn.addEventListener("click", () => setCollapsed(section, !section.classList.contains("collapsed")));
+  }
   $("apply").addEventListener("click", () =>
     apply().catch((e) => {
       showStatus("error", "Kunne ikke oppdatere", e.message);

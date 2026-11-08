@@ -162,18 +162,34 @@
     }
     .chips input:checked + label { background: var(--accent); border-color: transparent; color: var(--accent-text); }
     .chips input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 1px; }
-    .words summary {
-      padding: 8px 12px;
-      color: var(--muted); font-size: 12px;
-      cursor: pointer;
-      list-style: none;
+    .word-chip {
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px; font-weight: 500;
+      background: var(--surface-2);
+      color: var(--muted);
     }
-    .words summary::-webkit-details-marker { display: none; }
-    .words summary::before { content: "▸ "; }
-    .words[open] summary::before { content: "▾ "; }
-    #word-list { max-height: 220px; overflow-y: auto; border-top: 1px solid var(--border); }
-    .word-row { padding: 4px 12px; }
-    .word-row + .word-row { border-top: 0; }
+    .word-chip[data-state="require"] { background: var(--accent); border-color: transparent; color: var(--accent-text); }
+    .word-chip[data-state="require"]::before { content: "✓ "; }
+    .word-chip[data-state="block"] { background: var(--danger); border-color: transparent; color: #fff; text-decoration: line-through; }
+    .add-word { display: flex; gap: 6px; }
+    .add-word button { padding: 3px 10px; font-weight: 500; }
+    .row-head { display: flex; align-items: center; gap: 12px; }
+    .slider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    .slider input { flex: 1; accent-color: var(--accent); }
+    .slider[hidden] { display: none; }
+
+    /* ---------- Sammenleggbare seksjoner ---------- */
+    .section-head .collapse {
+      all: unset;
+      cursor: pointer;
+      font: inherit;
+    }
+    .section-head .collapse::before { content: "▾ "; }
+    .section-head .collapse[aria-expanded="false"]::before { content: "▸ "; }
+    .section-head .collapse:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+    section.collapsed > .group { display: none; }
+    section[hidden] { display: none; }
 
     /* ---------- Regelsett ---------- */
     .ruleset textarea {
@@ -264,8 +280,10 @@
       </div>
     </section>
 
-    <section class="depends-on-enabled" aria-labelledby="cat-title">
-      <div class="section-head"><h2 id="cat-title">Kategori</h2></div>
+    <section id="cat-section" class="depends-on-enabled" aria-labelledby="cat-title">
+      <div class="section-head">
+        <h2 id="cat-title"><button type="button" class="collapse" aria-expanded="true">Kategori</button></h2>
+      </div>
       <div class="group">
         <label class="row" for="cat-select">
           <div class="row-text">Kategori</div>
@@ -282,9 +300,9 @@
       </div>
     </section>
 
-    <section class="ruleset depends-on-enabled" aria-labelledby="rules-title">
+    <section id="rules-section" class="ruleset depends-on-enabled" aria-labelledby="rules-title">
       <div class="section-head">
-        <h2 id="rules-title">Regler</h2>
+        <h2 id="rules-title"><button type="button" class="collapse" aria-expanded="true">Regler</button></h2>
         <span class="section-meta" id="rule-count"></span>
       </div>
       <div class="group">

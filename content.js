@@ -5,7 +5,7 @@
   const api = globalThis.browser ?? globalThis.chrome;
   const DEFAULTS = globalThis.FF_DEFAULTS;
   const CATEGORIES = globalThis.FF_CATEGORIES;
-  const { activeProfile, evaluate } = globalThis.FF_MATCH;
+  const { categoryFor, activeProfile, evaluate } = globalThis.FF_MATCH;
 
   let settings = { ...DEFAULTS };
   let compiled = { include: [], exclude: [] };
@@ -14,6 +14,7 @@
   let lastCards = 0;
   // Profilen avhenger av URL-en, og Finn bytter URL uten å laste siden på nytt.
   let profile = null;
+  let categoryId = null;
   let profileHref = null;
 
   // ---------- Regelmotor ----------
@@ -124,6 +125,7 @@
   function currentProfile() {
     if (profileHref !== location.href) {
       profileHref = location.href;
+      categoryId = categoryFor(CATEGORIES, location.href);
       profile = activeProfile(CATEGORIES, settings.profiles, location.href);
     }
     return profile;
@@ -136,6 +138,9 @@
     if (result.state === "blocked") {
       return { state: settings.mode, reason: `«${result.hit}» (${suffix}: blokkert ord)` };
     }
+    if (result.state === "conflict") {
+      return { state: settings.mode, reason: `«${result.hit}» (${suffix}: feil ${result.attr})` };
+    }
     const missing = result.missing.join(" · ");
     if (result.state === "fail") {
       return { state: settings.mode, reason: `mangler ${missing} (${suffix})` };
@@ -146,7 +151,8 @@
   // Kortteksten først; ved dyp sjekk kan annonseteksten oppfylle krav som mangler.
   function checkProfile(cardText, url) {
     const onCard = evaluate(profile, cardText);
-    if (!settings.deep || !url || !onCard || onCard.state === "ok" || onCard.state === "blocked") {
+    const final = !onCard || ["ok", "blocked", "conflict"].includes(onCard.state);
+    if (!settings.deep || !url || final) {
       return profileVerdict(onCard, "");
     }
     if (!deepText.has(url)) {
@@ -261,6 +267,20 @@
     }
   }
 
+  function checkRules(card, url) {
+    let hit = check(card.textContent);
+    let where = "";
+    if (!hit && settings.deep && url) {
+      if (deepText.has(url)) {
+        hit = check(deepText.get(url));
+        where = "i annonseteksten";
+      } else {
+        requestDeep(url);
+      }
+    }
+    return hit ? { state: settings.mode, reason: describeHit(hit, where) } : null;
+  }
+
   function run() {
     const cards = settings.enabled && !isDetailPage() ? collectCards() : new Map();
 
@@ -272,19 +292,8 @@
     let count = 0;
     let warned = 0;
     for (const [card, url] of cards) {
-      let hit = check(card.textContent);
-      let where = "";
-      if (!hit && settings.deep && url) {
-        if (deepText.has(url)) {
-          hit = check(deepText.get(url));
-          where = "i annonseteksten";
-        } else {
-          requestDeep(url);
-        }
-      }
-      const verdict = hit
-        ? { state: settings.mode, reason: describeHit(hit, where) }
-        : profile && checkProfile(spacedText(card), url);
+      // Med aktiv kategoriprofil gjelder profilen alene, ikke de generelle reglene.
+      const verdict = profile ? checkProfile(spacedText(card), url) : checkRules(card, url);
       setState(card, verdict?.state ?? null, verdict?.reason ?? null);
       if (verdict?.state === "warn") warned++;
       else if (verdict) count++;
@@ -348,6 +357,7 @@
     count: lastCount,
     warned: lastWarned,
     profile: profile && !isDetailPage() ? profile.label : null,
+    category: categoryId,
     cards: lastCards,
     pending: inflight.size,
     detailPage: isDetailPage(),

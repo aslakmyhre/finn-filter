@@ -3,12 +3,12 @@
 const CategoryForm = (() => {
   const CATS = globalThis.FF_CATEGORIES;
   const byId = (id) => document.getElementById(id);
-  const WORD_STATES = [
-    { value: "", label: "–" },
-    { value: "require", label: "Krav" },
-    { value: "block", label: "Blokker" }
-  ];
+  // Klikk på et søkeord går rundt: – → krav → blokker → –
+  const WORD_CYCLE = ["", "require", "block"];
+  const WORD_STATE_LABEL = { "": "ikke brukt", require: "krav", block: "blokkert" };
   const NEW_WORD_STATE = "block";
+  const DEFAULT_NEAR_MISS = "warn";
+  const DEFAULT_MAX_MISSING = 1;
 
   let draft = {};
   let catId = Object.keys(CATS)[0];
@@ -23,6 +23,7 @@ const CategoryForm = (() => {
 
   const currentSubId = () => draft[catId]?.sub || "";
   const currentSub = () => CATS[catId].subs[currentSubId()];
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
   // Labels for valgte underkategorier, f.eks. ["Datakomponenter › Skjermkort"].
   function selectedLabels(profiles) {
@@ -58,18 +59,16 @@ const CategoryForm = (() => {
     ]);
   }
 
-  function wordRow(word, state, index) {
-    const name = `word-${index}`;
-    const radios = WORD_STATES.flatMap((s) => {
-      const id = `${name}-${s.value || "none"}`;
-      const input = el("input", { type: "radio", name, id, value: s.value, checked: s.value === (state || "") });
-      input.dataset.word = word;
-      return [input, el("label", { htmlFor: id, textContent: s.label })];
-    });
-    return el("div", { className: "row word-row" }, [
-      el("div", { className: "row-text", textContent: word }),
-      el("div", { className: "segmented", role: "radiogroup", ariaLabel: word }, radios)
-    ]);
+  function setWordState(chip, state) {
+    chip.dataset.state = state;
+    chip.setAttribute("aria-label", `${chip.dataset.word}: ${WORD_STATE_LABEL[state]}`);
+  }
+
+  function wordChip(word, state) {
+    const chip = el("button", { type: "button", className: "word-chip", textContent: word });
+    chip.dataset.word = word;
+    setWordState(chip, state || "");
+    return chip;
   }
 
   function vocabulary(sub, words) {
@@ -77,15 +76,42 @@ const CategoryForm = (() => {
     return [...new Set(all)];
   }
 
-  function wordsBlock(sub, words) {
-    const list = el("div", { id: "word-list" },
-      vocabulary(sub, words).map((w, i) => wordRow(w, words[w], i)));
-    const input = el("input", { type: "text", id: "new-word", placeholder: "Legg til ord …", spellcheck: false });
-    const add = el("button", { type: "button", id: "add-word", textContent: "Legg til" });
-    return el("details", { className: "words" }, [
-      el("summary", { id: "words-summary" }),
-      list,
-      el("div", { className: "row" }, [input, add])
+  function wordsRow(sub, words) {
+    return el("div", { className: "row row-stack" }, [
+      el("div", { className: "row-text" }, [
+        "Søkeord",
+        el("small", { textContent: "Klikk for å bytte: – → krav → blokkert" })
+      ]),
+      el("div", { className: "chips", id: "word-list" },
+        vocabulary(sub, words).map((w) => wordChip(w, words[w]))),
+      el("div", { className: "add-word" }, [
+        el("input", { type: "text", id: "new-word", placeholder: "Legg til ord …", spellcheck: false }),
+        el("button", { type: "button", id: "add-word", textContent: "Legg til" })
+      ])
+    ]);
+  }
+
+  function nearMissRow(entry) {
+    const mode = entry.nearMiss ?? DEFAULT_NEAR_MISS;
+    const radios = [["warn", "Advar"], ["hide", "Skjul"]].flatMap(([value, label]) => [
+      el("input", { type: "radio", name: "near-miss", id: `near-miss-${value}`, value, checked: value === mode }),
+      el("label", { htmlFor: `near-miss-${value}`, textContent: label })
+    ]);
+    return el("div", { className: "row row-stack" }, [
+      el("div", { className: "row-head" }, [
+        el("div", { className: "row-text" }, [
+          "Nesten-treff",
+          el("small", { textContent: "Annonser som oppfyller noen, men ikke alle krav." })
+        ]),
+        el("div", { className: "segmented", role: "radiogroup", ariaLabel: "Nesten-treff" }, radios)
+      ]),
+      el("div", { className: "slider", id: "near-miss-slider" }, [
+        el("input", {
+          type: "range", id: "max-missing", min: 1, step: 1,
+          value: entry.maxMissing ?? DEFAULT_MAX_MISSING
+        }),
+        el("span", { id: "max-missing-label" })
+      ])
     ]);
   }
 
@@ -101,14 +127,13 @@ const CategoryForm = (() => {
       else if (attr.type === "models") box.append(modelsRow(attr, value));
       else throw new Error(`Ukjent attributtype: ${attr.type}`);
     }
-    box.append(wordsBlock(sub, entry.words));
+    box.append(wordsRow(sub, entry.words), nearMissRow(entry));
     store();
   }
 
   // ---------- Lese skjemaet ----------
 
-  function collect() {
-    const sub = currentSub();
+  function collectAttrs(sub) {
     const attrs = {};
     for (const attr of sub.attrs) {
       if (attr.type === "options") {
@@ -119,23 +144,38 @@ const CategoryForm = (() => {
         if (v) attrs[attr.id] = v;
       }
     }
-    const words = {};
-    for (const r of document.querySelectorAll("#word-list input[data-word]:checked")) {
-      if (r.value) words[r.dataset.word] = r.value;
-    }
-    return { attrs, words };
+    return attrs;
   }
 
-  function updateSummary() {
-    const states = Object.values(draft[catId][currentSubId()].words);
-    const req = states.filter((s) => s === "require").length;
-    const block = states.filter((s) => s === "block").length;
-    byId("words-summary").textContent = `Søkeord · ${req} krav · ${block} blokkert`;
+  function collectWords() {
+    const words = {};
+    for (const chip of byId("word-list").children) {
+      if (chip.dataset.state) words[chip.dataset.word] = chip.dataset.state;
+    }
+    return words;
+  }
+
+  // Slideren kan bare gå til én under antall krav – mangler alle, skjules annonsen uansett.
+  function syncSlider(requirementCount) {
+    const slider = byId("max-missing");
+    const max = Math.max(1, requirementCount - 1);
+    const n = Math.min(Number(slider.value), max);
+    slider.max = max;
+    slider.value = n;
+    slider.disabled = requirementCount < 3;
+    byId("max-missing-label").textContent = `Tillat inntil ${plural(n, "mangel", "mangler")}`;
+    byId("near-miss-slider").hidden = byId("near-miss-hide").checked;
+    return n;
   }
 
   function store() {
-    draft[catId][currentSubId()] = collect();
-    updateSummary();
+    const sub = currentSub();
+    const attrs = collectAttrs(sub);
+    const words = collectWords();
+    const required = Object.values(words).filter((s) => s === "require").length;
+    const maxMissing = syncSlider(Object.keys(attrs).length + required);
+    const nearMiss = document.querySelector('input[name="near-miss"]:checked').value;
+    draft[catId][currentSubId()] = { attrs, words, nearMiss, maxMissing };
   }
 
   // ---------- Hendelser ----------
@@ -145,13 +185,17 @@ const CategoryForm = (() => {
     const word = input.value.trim().toLowerCase();
     if (!word) return;
     input.value = "";
-    const existing = document.querySelector(`#word-list input[data-word="${CSS.escape(word)}"][value="${NEW_WORD_STATE}"]`);
-    if (existing) {
-      existing.checked = true;
-    } else {
-      const list = byId("word-list");
-      list.append(wordRow(word, NEW_WORD_STATE, list.children.length));
-    }
+    const list = byId("word-list");
+    const existing = [...list.children].find((c) => c.dataset.word === word);
+    if (existing) setWordState(existing, NEW_WORD_STATE);
+    else list.append(wordChip(word, NEW_WORD_STATE));
+    store();
+    notify();
+  }
+
+  function cycleWord(chip) {
+    const next = WORD_CYCLE[(WORD_CYCLE.indexOf(chip.dataset.state) + 1) % WORD_CYCLE.length];
+    setWordState(chip, next);
     store();
     notify();
   }
@@ -166,11 +210,15 @@ const CategoryForm = (() => {
     renderFields();
   }
 
+  function showCategory(id) {
+    if (!CATS[id] || id === catId) return;
+    catId = id;
+    byId("cat-select").value = id;
+    renderSubSelect();
+  }
+
   function bind() {
-    byId("cat-select").addEventListener("change", (e) => {
-      catId = e.target.value;
-      renderSubSelect();
-    });
+    byId("cat-select").addEventListener("change", (e) => showCategory(e.target.value));
     byId("sub-select").addEventListener("change", (e) => {
       draft[catId] = { ...draft[catId], sub: e.target.value };
       renderFields();
@@ -184,6 +232,7 @@ const CategoryForm = (() => {
     });
     box.addEventListener("click", (e) => {
       if (e.target.id === "add-word") addWord();
+      else if (e.target.classList.contains("word-chip")) cycleWord(e.target);
     });
     box.addEventListener("keydown", (e) => {
       if (e.target.id === "new-word" && e.key === "Enter") addWord();
@@ -203,5 +252,5 @@ const CategoryForm = (() => {
     bind();
   }
 
-  return { init, read: () => structuredClone(draft), selectedLabels };
+  return { init, read: () => structuredClone(draft), selectedLabels, showCategory };
 })();
