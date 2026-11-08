@@ -54,3 +54,28 @@ html.ff-reveal [data-ff-state="hide"]::after {
 #ff-badge:hover {
   background: #374151;
 }
+
+/* Kategoriprofil: noen krav oppfylt, ikke alle */
+[data-ff-state="warn"] {
+  position: relative !important;
+  outline: 2px dashed #e0a800 !important;
+  outline-offset: -2px;
+}
+
+[data-ff-state="warn"]::after {
+  content: "⚠ " attr(data-ff-reason);
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  max-width: calc(100% - 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #ffc107;
+  color: #1f1a00;
+  font: 600 12px/1.4 system-ui, sans-serif;
+  padding: 2px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}

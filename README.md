@@ -65,6 +65,31 @@ signering med Apple-ID).
 | `/\bdefekt/`     | Regulært uttrykk mot teksten (små bokstaver)                          |
 | `# tekst`        | Kommentar                                                             |
 
+## Kategorier
+
+Finer underkategorier enn Finn har. Foreløpig: **Datakomponenter → Skjermkort**.
+Gjelder bare når søket er i Datakomponenter (`product_category=2.93.3215.8368`).
+
+I popupen under **Kategori** velger du underkategori og krav:
+
+- **Produsent** og **VRAM** – velg én eller flere (holder at én stemmer).
+- **Modell** – kommaseparert, f.eks. `4060ti, 5060ti`. `4060ti` treffer også
+  «4060 Ti» og «RTX4060-TI», men `4060` treffer ikke «4060 Ti», og `4070ti`
+  treffer ikke «4070 Ti Super».
+- **Søkeord** – hvert ord kan være `–`, **Krav** eller **Blokker**. Egne ord kan
+  legges til. Blokkerte ord sjekkes bare mot kortet, ikke annonseteksten.
+
+Per annonse:
+
+| Resultat                                   | Visning                              |
+|--------------------------------------------|--------------------------------------|
+| Alle krav oppfylt                          | Vises som vanlig                     |
+| Noen krav oppfylt                          | Gul lapp: «⚠ Mangler 16 GB (Skjermkort)» |
+| Ingen krav oppfylt, feil modell, eller blokkert ord | Skjules/nedtones som vanlige regler |
+
+VRAM leses fra teksten, så «RTX 4060 8GB / 16GB RAM» regnes som 16 GB.
+Nye kategorier legges til som data i `categories.js`.
+
 ## Popupen
 
 Endringer i regler og valg tas ikke i bruk før du trykker **Oppdater filter**.

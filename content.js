@@ -4,11 +4,17 @@
 
   const api = globalThis.browser ?? globalThis.chrome;
   const DEFAULTS = globalThis.FF_DEFAULTS;
+  const CATEGORIES = globalThis.FF_CATEGORIES;
+  const { activeProfile, evaluate } = globalThis.FF_MATCH;
 
   let settings = { ...DEFAULTS };
   let compiled = { include: [], exclude: [] };
   let lastCount = 0;
+  let lastWarned = 0;
   let lastCards = 0;
+  // Profilen avhenger av URL-en, og Finn bytter URL uten å laste siden på nytt.
+  let profile = null;
+  let profileHref = null;
 
   // ---------- Regelmotor ----------
 
@@ -115,6 +121,50 @@
   const describeHit = ({ rule, hit }, where) =>
     `«${hit}» (regel: ${rule}${where ? `, ${where}` : ""})`;
 
+  function currentProfile() {
+    if (profileHref !== location.href) {
+      profileHref = location.href;
+      profile = activeProfile(CATEGORIES, settings.profiles, location.href);
+    }
+    return profile;
+  }
+
+  // Gjør om en profilvurdering til { state, reason } for kortet, eller null.
+  function profileVerdict(result, where) {
+    if (!result || result.state === "ok") return null;
+    const suffix = `${profile.label}${where ? `, ${where}` : ""}`;
+    if (result.state === "blocked") {
+      return { state: settings.mode, reason: `«${result.hit}» (${suffix}: blokkert ord)` };
+    }
+    const missing = result.missing.join(" · ");
+    if (result.state === "fail") {
+      return { state: settings.mode, reason: `mangler ${missing} (${suffix})` };
+    }
+    return { state: "warn", reason: `Mangler ${missing} (${suffix})` };
+  }
+
+  // Kortteksten først; ved dyp sjekk kan annonseteksten oppfylle krav som mangler.
+  function checkProfile(cardText, url) {
+    const onCard = evaluate(profile, cardText);
+    if (!settings.deep || !url || !onCard || onCard.state === "ok" || onCard.state === "blocked") {
+      return profileVerdict(onCard, "");
+    }
+    if (!deepText.has(url)) {
+      requestDeep(url);
+      return profileVerdict(onCard, "");
+    }
+    return profileVerdict(evaluate(profile, cardText, deepText.get(url)), "med annonseteksten");
+  }
+
+  // Som textContent, men med mellomrom mellom tekstnoder. Ellers limes
+  // f.eks. pris og tittel sammen («krRTX»), og ordgrensene i profilene svikter.
+  function spacedText(root) {
+    const parts = [];
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) parts.push(walker.currentNode.nodeValue);
+    return parts.join(" ");
+  }
+
   // ---------- Finne annonsekort ----------
 
   const ITEM_LINK = 'a[href*="/item/"], a[href*="finnkode="]';
@@ -181,7 +231,7 @@
         .join(" ");
       const main = doc.querySelector("main") || doc.body;
       main?.querySelectorAll("script, style, noscript, svg").forEach((n) => n.remove());
-      return (main?.textContent || "") + " " + ld;
+      return (main ? spacedText(main) : "") + " " + ld;
     } catch (e) {
       console.warn("[Finn-filter] kunne ikke hente annonse", url, e);
       return "";
@@ -218,7 +268,9 @@
       if (!cards.has(el)) setState(el, null);
     }
 
+    currentProfile();
     let count = 0;
+    let warned = 0;
     for (const [card, url] of cards) {
       let hit = check(card.textContent);
       let where = "";
@@ -230,39 +282,44 @@
           requestDeep(url);
         }
       }
-      const reason = hit ? describeHit(hit, where) : null;
-      setState(card, reason ? settings.mode : null, reason);
-      if (reason) count++;
+      const verdict = hit
+        ? { state: settings.mode, reason: describeHit(hit, where) }
+        : profile && checkProfile(spacedText(card), url);
+      setState(card, verdict?.state ?? null, verdict?.reason ?? null);
+      if (verdict?.state === "warn") warned++;
+      else if (verdict) count++;
     }
     lastCards = cards.size;
-    updateBadge(count);
+    updateBadge(count, warned);
   }
 
   // ---------- Liten teller nederst til høyre ----------
 
   let badge = null;
 
-  function updateBadge(n) {
+  function updateBadge(n, warned) {
     lastCount = n;
-    if (!n && !badge) return;
+    lastWarned = warned;
+    if (!n && !warned && !badge) return;
     if (!badge) {
       badge = document.createElement("button");
       badge.id = "ff-badge";
       badge.type = "button";
       badge.addEventListener("click", () => {
         document.documentElement.classList.toggle("ff-reveal");
-        updateBadge(lastCount);
+        updateBadge(lastCount, lastWarned);
       });
     }
     if (!badge.isConnected && document.body) document.body.appendChild(badge);
 
     const reveal = document.documentElement.classList.contains("ff-reveal");
-    const txt =
-      settings.mode === "hide"
-        ? `Finn-filter: ${n} skjult · ${reveal ? "skjul igjen" : "vis"}`
-        : `Finn-filter: ${n} markert`;
+    const parts = [];
+    if (n > 0) parts.push(settings.mode === "hide" ? `${n} skjult` : `${n} markert`);
+    if (warned > 0) parts.push(`${warned} med advarsel`);
+    if (n > 0 && settings.mode === "hide") parts.push(reveal ? "skjul igjen" : "vis");
+    const txt = `Finn-filter: ${parts.join(" · ")}`;
     if (badge.textContent !== txt) badge.textContent = txt;
-    const display = n > 0 ? "" : "none";
+    const display = n > 0 || warned > 0 ? "" : "none";
     if (badge.style.display !== display) badge.style.display = display;
   }
 
@@ -278,6 +335,7 @@
     const stored = await api.storage.sync.get(DEFAULTS);
     settings = { ...DEFAULTS, ...stored };
     compiled = compile(settings.rules);
+    profileHref = null;
   }
 
   const reportError = (e) => console.error("[Finn-filter]", e);
@@ -288,6 +346,8 @@
 
   const status = () => ({
     count: lastCount,
+    warned: lastWarned,
+    profile: profile && !isDetailPage() ? profile.label : null,
     cards: lastCards,
     pending: inflight.size,
     detailPage: isDetailPage(),

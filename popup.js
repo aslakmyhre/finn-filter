@@ -22,7 +22,8 @@ function readForm() {
     enabled: $("enabled").checked,
     mode: selectedMode(),
     deep: $("deep").checked,
-    rules: parseRules()
+    rules: parseRules(),
+    profiles: CategoryForm.read()
   };
 }
 
@@ -103,6 +104,12 @@ function showPageStatus(r) {
   }
   const verb = r.mode === "hide" ? "skjult" : "markert";
   const details = [];
+  if (r.profile) {
+    details.push(`Profil: ${r.profile}${r.warned ? ` · ${plural(r.warned, "advarsel", "advarsler")}` : ""}`);
+  } else {
+    const selected = CategoryForm.selectedLabels(saved.profiles);
+    if (selected.length) details.push(`Profilen (${selected.join(", ")}) gjelder ikke dette søket.`);
+  }
   if (r.pending > 0) details.push(`Sjekker ${plural(r.pending, "annonsetekst", "annonsetekster")} i bakgrunnen …`);
   if (r.count === 0 && !r.deep) {
     details.push("Tips: slå på «Sjekk annonseteksten» – ord som «rep.objekt» står ofte bare i beskrivelsen.");
@@ -147,6 +154,7 @@ function fill(s) {
   $(`mode-${s.mode}`).checked = true;
   $("deep").checked = s.deep;
   $("rules").value = s.rules.join("\n");
+  CategoryForm.init(s.profiles, onFormChange);
 }
 
 async function init() {

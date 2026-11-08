@@ -135,6 +135,46 @@
     .segmented input:checked + label { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
     .segmented input:focus-visible + label { outline: 2px solid var(--accent); }
 
+    /* ---------- Kategori ---------- */
+    select, input[type="text"] {
+      font: inherit;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    input[type="text"] { flex: 1; min-width: 0; }
+    select:focus-visible, input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+    #sub-fields > * { border-top: 1px solid var(--border); }
+    .row-stack { flex-direction: column; align-items: stretch; gap: 6px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .chips input { position: absolute; opacity: 0; pointer-events: none; }
+    .chips label {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chips input:checked + label { background: var(--accent); border-color: transparent; color: var(--accent-text); }
+    .chips input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .words summary {
+      padding: 8px 12px;
+      color: var(--muted); font-size: 12px;
+      cursor: pointer;
+      list-style: none;
+    }
+    .words summary::-webkit-details-marker { display: none; }
+    .words summary::before { content: "▸ "; }
+    .words[open] summary::before { content: "▾ "; }
+    #word-list { max-height: 220px; overflow-y: auto; border-top: 1px solid var(--border); }
+    .word-row { padding: 4px 12px; }
+    .word-row + .word-row { border-top: 0; }
+
     /* ---------- Regelsett ---------- */
     .ruleset textarea {
       display: block;
@@ -224,6 +264,24 @@
       </div>
     </section>
 
+    <section class="depends-on-enabled" aria-labelledby="cat-title">
+      <div class="section-head"><h2 id="cat-title">Kategori</h2></div>
+      <div class="group">
+        <label class="row" for="cat-select">
+          <div class="row-text">Kategori</div>
+          <select id="cat-select"></select>
+        </label>
+        <label class="row" for="sub-select">
+          <div class="row-text">
+            Underkategori
+            <small>Gjelder bare søk i valgt kategori på finn.no.</small>
+          </div>
+          <select id="sub-select"></select>
+        </label>
+        <div id="sub-fields"></div>
+      </div>
+    </section>
+
     <section class="ruleset depends-on-enabled" aria-labelledby="rules-title">
       <div class="section-head">
         <h2 id="rules-title">Regler</h2>
@@ -253,6 +311,8 @@
   </footer>
 
   <script src="defaults.js"></script>
+  <script src="categories.js"></script>
+  <script src="popup-categories.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
