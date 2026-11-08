@@ -22,6 +22,7 @@ function readForm() {
     enabled: $("enabled").checked,
     mode: selectedMode(),
     deep: $("deep").checked,
+    autofill: $("autofill").checked,
     rules: parseRules(),
     profiles: CategoryForm.read()
   };
@@ -111,6 +112,10 @@ function showPageStatus(r) {
     const selected = CategoryForm.selectedLabels(saved.profiles);
     if (selected.length) details.push(`Profilen (${selected.join(", ")}) gjelder ikke dette søket.`);
   }
+  const af = r.autofill;
+  if (af?.loading) details.push("Henter flere annonser fra Finn …");
+  else if (af?.error) details.push(`Kunne ikke hente flere annonser: ${af.error}`);
+  else if (af?.pages) details.push(`Hentet ${plural(af.pages, "ekstra side", "ekstra sider")} fra Finn.`);
   if (r.pending > 0) details.push(`Sjekker ${plural(r.pending, "annonsetekst", "annonsetekster")} i bakgrunnen …`);
   if (r.count === 0 && !r.deep) {
     details.push("Tips: slå på «Sjekk annonseteksten» – ord som «rep.objekt» står ofte bare i beskrivelsen.");
@@ -165,13 +170,14 @@ async function askTab(type) {
   }
   applyContext(r);
   showPageStatus(r);
-  if (r.pending > 0) pollTimer = setTimeout(() => askTab("ff-count"), PENDING_POLL_MS);
+  if (r.pending > 0 || r.autofill?.loading) pollTimer = setTimeout(() => askTab("ff-count"), PENDING_POLL_MS);
 }
 
 function fill(s) {
   $("enabled").checked = s.enabled;
   $(`mode-${s.mode}`).checked = true;
   $("deep").checked = s.deep;
+  $("autofill").checked = s.autofill;
   $("rules").value = s.rules.join("\n");
   CategoryForm.init(s.profiles, onFormChange);
 }
@@ -182,7 +188,7 @@ async function init() {
   onFormChange();
   requestAnimationFrame(() => document.body.classList.add("ready"));
 
-  for (const el of document.querySelectorAll('#enabled, #deep, input[name="mode"]')) {
+  for (const el of document.querySelectorAll('#enabled, #deep, #autofill, input[name="mode"]')) {
     el.addEventListener("change", onFormChange);
   }
   $("rules").addEventListener("input", onFormChange);

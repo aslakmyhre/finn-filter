@@ -51,6 +51,23 @@ html.ff-reveal [data-ff-state="hide"]::after {
   cursor: pointer;
 }
 
+#ff-load-more {
+  display: block;
+  margin: 16px auto;
+  background: #1f2937;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: 600 14px/1.2 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#ff-load-more:disabled {
+  background: #6b7280;
+  cursor: default;
+}
+
 #ff-badge:hover {
   background: #374151;
 }

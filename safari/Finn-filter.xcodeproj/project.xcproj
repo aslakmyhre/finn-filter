@@ -73,6 +73,7 @@
             { "path": "../../categories.js", "target-membership": [ "Finn-filter Extension/resources" ] },
             { "path": "../../category-match.js", "target-membership": [ "Finn-filter Extension/resources" ] },
             { "path": "../../popup-categories.js", "target-membership": [ "Finn-filter Extension/resources" ] },
+            { "path": "../../autofill.js", "target-membership": [ "Finn-filter Extension/resources" ] },
           ],
         },
         { "path": "SafariWebExtensionHandler.swift", "target-membership": [ "Finn-filter Extension/compile-sources" ] },

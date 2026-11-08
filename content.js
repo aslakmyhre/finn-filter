@@ -185,9 +185,9 @@
 
   // Finner annonsekort via lenkene til annonsene, i stedet for å stole på
   // klassenavn som Finn kan endre når som helst.
-  function collectCards() {
+  function collectCards(root = document) {
     const cards = new Map(); // element -> annonse-URL
-    for (const a of document.querySelectorAll(ITEM_LINK)) {
+    for (const a of root.querySelectorAll(ITEM_LINK)) {
       const card = a.closest("article") || a.closest("li");
       if (!card || cards.has(card) || card.id === "ff-badge") continue;
       // Sikkerhetssjekk: et kort skal bare peke på én annonse,
@@ -200,6 +200,16 @@
     }
     return cards;
   }
+
+  // Finns egen resultatliste: forelderen til kortene som ikke er hentet av oss.
+  function resultList(cards) {
+    for (const card of cards.keys()) {
+      if (!autofill.isOwn(card.parentElement)) return card.parentElement;
+    }
+    return null;
+  }
+
+  const autofill = globalThis.FF_AUTOFILL.create({ collectCards, itemKey, requestRun: schedule });
 
   // ---------- Dyp sjekk (selve annonseteksten) ----------
 
@@ -300,6 +310,14 @@
     }
     lastCards = cards.size;
     updateBadge(count, warned);
+
+    const list = resultList(cards);
+    autofill.update({
+      active: settings.enabled && settings.autofill && settings.mode === "hide" && !isDetailPage(),
+      visible: cards.size - count,
+      total: list ? [...cards.keys()].filter((c) => c.parentElement === list).length : 0,
+      list
+    });
   }
 
   // ---------- Liten teller nederst til høyre ----------
@@ -363,7 +381,8 @@
     detailPage: isDetailPage(),
     mode: settings.mode,
     enabled: settings.enabled,
-    deep: settings.deep
+    deep: settings.deep,
+    autofill: autofill.status()
   });
 
   api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

@@ -120,6 +120,14 @@ hvorfor filteret eventuelt ikke kjører.
   bakgrunnen (maks 3 samtidig) og sjekker hele teksten. Tregere, så annonser
   forsvinner litt etter at siden har lastet.
 
+- **Fyll på med flere treff** (på som standard) – når filteret skjuler så mange
+  at siden blir tom, henter utvidelsen neste sider fra Finn (`page=2`, `3`, …) i
+  bakgrunnen og legger de nye annonsene under Finns liste, til siden har like
+  mange synlige annonser som en vanlig side. Maks 5 sider om gangen; knappen
+  «hent flere treff» nederst henter flere. Virker bare i «Skjul»-modus. De hentede
+  kortene er kopier uten Finns egen JavaScript, så hjerteknappen (favoritt)
+  virker trolig ikke der – åpne annonsen for det.
+
 ## Hvordan den finner annonsene
 
 Den ser etter lenker til annonser (`/item/12345` eller `finnkode=12345`) og
